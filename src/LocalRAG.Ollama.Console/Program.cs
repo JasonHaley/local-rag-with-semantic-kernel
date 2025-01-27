@@ -2,7 +2,6 @@
 using LocalRAG.Common.Configuration;
 using LocalRAG.Common.Loaders;
 using LocalRAG.Common.Models;
-using LocalRAG.Ollama.Console;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,10 +9,8 @@ using Microsoft.Extensions.VectorData;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Embeddings;
-using OpenAI.Chat;
 using Qdrant.Client;
 using System.Text;
-using System.Text.Json;
 
 var builder = Host.CreateApplicationBuilder(args).AddAppSettings();
 
@@ -21,7 +18,6 @@ var builder = Host.CreateApplicationBuilder(args).AddAppSettings();
 //var ollamaClient = new OllamaApiClient("http://localhost:11434", "llama3.1");
 //var ollamaClient = new OllamaApiClient("http://localhost:11434", "phi3.5");
 //var chatService = ollamaClient.AsChatCompletionService();
-
 
 var kernelBuilder = Kernel.CreateBuilder()
     .AddQdrantVectorStore("localhost")
@@ -43,15 +39,8 @@ var vectorStoreCollection = vectorStore.GetCollection<Guid, RawChunk>("blog-entr
 
 await vectorStoreCollection.CreateCollectionIfNotExistsAsync();
 
-var loader = new MarkdownLoader(embeddingService, vectorStoreCollection);
-await loader.LoadMarkdownAsync(@"D:\__ai\GitHubJH\local-rag-with-semantic-kernel\src\LocalRAG.Ollama.Console\sample-data");
-
-//var rag = kernel.Plugins["Prompts"];
-
-//PromptExecutionSettings promptExecutionSettings = new()
-//{
-//    FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-//};
+var loader = new TextFileLoader(embeddingService, vectorStoreCollection);
+await loader.LoadTextFileAsync(@"D:\__ai\GitHubJH\local-rag-with-semantic-kernel\src\LocalRAG.Ollama.Console\sample-data", "md");
 
 var responseTokens = new StringBuilder();
 var chatHistory = new ChatHistory("You are a helpful assistant that knows blog entries Jason Haley has made.");
@@ -68,8 +57,6 @@ while (true)
     var promptEmbedding = await embeddingService.GenerateEmbeddingAsync(question);
 
     var results = new StringBuilder();
-
-
     var searchResult = await vectorStoreCollection.VectorizedSearchAsync(promptEmbedding, new() { Top = 5 });
 
     Console.WriteLine("============== SERACH RESULTS ==============");  
@@ -81,19 +68,6 @@ while (true)
 
         Console.WriteLine("============================================");
     }
-
-
-    //var prompt = @$"Your are an intelligent, cheerful assistant who prioritizes answers to user questions using the data in this conversation. 
-    //            If you do not know the answer, say 'I don't know.'. 
-    //            Answer the following question: 
-
-    //            [Question]
-    //            {question}
-
-    //            Prioritize the following data to answer the question:
-    //            [Data]
-    //            {results}
-    //";
 
     var prompt = @$"Your are an intelligent, cheerful assistant who prioritizes answers to user questions using the data in this conversation. 
                 You will be give relevant parts of blog posts written by Jason Haley for data. Use the content give to answer the question the best you can.
